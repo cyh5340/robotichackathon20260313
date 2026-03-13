@@ -1,0 +1,255 @@
+openapi: 3.0.3
+info:
+  title: MedGuard API
+  version: 0.1.0
+  description: Minimal OpenAPI spec for MedGuard backend starter.
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: Service health
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  timestamp:
+                    type: string
+  /elders:
+    post:
+      summary: Create elder profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ElderCreate'
+      responses:
+        '200':
+          description: Elder created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Elder'
+  /elders/{elder_id}:
+    get:
+      summary: Get elder profile
+      parameters:
+        - in: path
+          name: elder_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Elder profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Elder'
+        '404':
+          description: Elder not found
+  /elders/{elder_id}/medications:
+    post:
+      summary: Add medication for elder
+      parameters:
+        - in: path
+          name: elder_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationCreate'
+      responses:
+        '200':
+          description: Medication created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Medication'
+    get:
+      summary: List elder medications
+      parameters:
+        - in: path
+          name: elder_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Medication list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Medication'
+  /adherence/logs:
+    post:
+      summary: Create adherence log
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdherenceLogCreate'
+      responses:
+        '200':
+          description: Log created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdherenceLog'
+  /elders/{elder_id}/adherence:
+    get:
+      summary: List elder adherence logs
+      parameters:
+        - in: path
+          name: elder_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Adherence logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AdherenceLog'
+  /robot/tasks:
+    post:
+      summary: Create robot task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RobotTaskCreate'
+      responses:
+        '200':
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RobotTask'
+  /robot/tasks/{task_id}:
+    get:
+      summary: Get robot task
+      parameters:
+        - in: path
+          name: task_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RobotTask'
+        '404':
+          description: Task not found
+components:
+  schemas:
+    ElderCreate:
+      type: object
+      required: [full_name]
+      properties:
+        full_name:
+          type: string
+        timezone:
+          type: string
+        primary_language:
+          type: string
+    Elder:
+      allOf:
+        - $ref: '#/components/schemas/ElderCreate'
+        - type: object
+          required: [id]
+          properties:
+            id:
+              type: string
+    MedicationCreate:
+      type: object
+      required: [drug_name, strength, dosage_form, route]
+      properties:
+        drug_name:
+          type: string
+        strength:
+          type: string
+        dosage_form:
+          type: string
+        route:
+          type: string
+    Medication:
+      allOf:
+        - $ref: '#/components/schemas/MedicationCreate'
+        - type: object
+          required: [id, elder_id]
+          properties:
+            id:
+              type: string
+            elder_id:
+              type: string
+    AdherenceLogCreate:
+      type: object
+      required: [elder_id, medication_schedule_id, status]
+      properties:
+        elder_id:
+          type: string
+        medication_schedule_id:
+          type: string
+        status:
+          type: string
+          enum: [scheduled, reminded, taken, missed, skipped, held_unsafe]
+        actual_taken_at:
+          type: string
+          nullable: true
+    AdherenceLog:
+      allOf:
+        - $ref: '#/components/schemas/AdherenceLogCreate'
+        - type: object
+          required: [id, scheduled_at]
+          properties:
+            id:
+              type: string
+            scheduled_at:
+              type: string
+    RobotTaskCreate:
+      type: object
+      required: [elder_id, task_type, plan_json]
+      properties:
+        elder_id:
+          type: string
+        task_type:
+          type: string
+          enum: [pick_and_place, sort_session]
+        plan_json:
+          type: object
+          additionalProperties: true
+    RobotTask:
+      allOf:
+        - $ref: '#/components/schemas/RobotTaskCreate'
+        - type: object
+          required: [id, status, started_at]
+          properties:
+            id:
+              type: string
+            status:
+              type: string
+              enum: [queued, running, completed, failed]
+            started_at:
+              type: string
