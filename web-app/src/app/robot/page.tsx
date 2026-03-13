@@ -33,6 +33,8 @@ export default function RobotPage() {
   const [planJsonText, setPlanJsonText] = useState(
     '{"slots":["morning","night"]}',
   );
+  const [objectName, setObjectName] = useState("");
+  const [objectDescription, setObjectDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -63,11 +65,14 @@ export default function RobotPage() {
     setSaving(true);
 
     try {
-      const parsedPlan = JSON.parse(planJsonText) as Record<string, unknown>;
+      const planJson: Record<string, unknown> =
+        taskType === "pick_and_place"
+          ? { object_name: objectName, description: objectDescription }
+          : (JSON.parse(planJsonText) as Record<string, unknown>);
       const task = await createRobotTask({
         elderId: selectedElderId,
         taskType,
-        planJson: parsedPlan,
+        planJson,
       });
       setTasks((current: RobotTask[]) => [task, ...current]);
     } catch {
@@ -136,20 +141,60 @@ export default function RobotPage() {
               </select>
             </label>
           </p>
-          <p>
-            <label>
-              Plan JSON
-              <br />
-              <textarea
-                value={planJsonText}
-                onChange={(event: { target: InputTarget }) =>
-                  setPlanJsonText(event.target.value)
-                }
-                rows={4}
-              />
-            </label>
-          </p>
-          <button type="submit" disabled={saving || !selectedElderId}>
+          {taskType === "pick_and_place" ? (
+            <>
+              <p>
+                <label>
+                  Object name
+                  <br />
+                  <input
+                    type="text"
+                    value={objectName}
+                    onChange={(event: { target: InputTarget }) =>
+                      setObjectName(event.target.value)
+                    }
+                    placeholder="e.g. red pill bottle"
+                  />
+                </label>
+              </p>
+              <p>
+                <label>
+                  Description
+                  <br />
+                  <textarea
+                    value={objectDescription}
+                    onChange={(event: { target: InputTarget }) =>
+                      setObjectDescription(event.target.value)
+                    }
+                    rows={3}
+                    placeholder="e.g. small red cylindrical pill bottle on the left side of the tray"
+                  />
+                </label>
+              </p>
+            </>
+          ) : (
+            <p>
+              <label>
+                Plan JSON
+                <br />
+                <textarea
+                  value={planJsonText}
+                  onChange={(event: { target: InputTarget }) =>
+                    setPlanJsonText(event.target.value)
+                  }
+                  rows={4}
+                />
+              </label>
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={
+              saving ||
+              !selectedElderId ||
+              (taskType === "pick_and_place" && !objectName.trim())
+            }
+          >
             {saving ? "Saving..." : "Create task"}
           </button>
         </form>

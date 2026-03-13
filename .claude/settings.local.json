@@ -1,7 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cat > D:/hktn/requirements.txt << 'EOF'\n# Audio \\(STT / TTS\\)\nsmallest>=0.1.0\npyaudio>=0.2.14\n\n# Vision \\(VLM via Featherless — OpenAI-compatible\\)\nopenai>=1.30.0\n\n# Arm control\nlerobot>=0.1.0\ntorch>=2.0.0\n\n# Orchestration / skills\ntoolhouse>=0.4.0\nanthropic>=0.28.0\n\n# Camera\nopencv-python>=4.9.0\nEOF)"
+      "Bash(cat > D:/hktn/requirements.txt << 'EOF'\n# Audio \\(STT / TTS\\)\nsmallest>=0.1.0\npyaudio>=0.2.14\n\n# Vision \\(VLM via Featherless — OpenAI-compatible\\)\nopenai>=1.30.0\n\n# Arm control\nlerobot>=0.1.0\ntorch>=2.0.0\n\n# Orchestration / skills\ntoolhouse>=0.4.0\nanthropic>=0.28.0\n\n# Camera\nopencv-python>=4.9.0\nEOF)",
+      "Bash(cd \"D:\\\\hktn\\\\robotichackathon20260313\\\\backend\" && pip install fastapi uvicorn 2>&1 | tail -5)",
+      "Bash(cd \"D:\\\\hktn\\\\robotichackathon20260313\\\\web-app\" && npm install 2>&1 | tail -5)",
+      "Bash(cd \"D:\\\\hktn\\\\robotichackathon20260313\\\\backend\" && python -m uvicorn main:app --reload --port 8000 2>&1)",
+      "Bash(pip install:*)",
+      "Bash(cd \"D:\\\\hktn\\\\robotichackathon20260313\\\\web-app\" && npm run dev 2>&1)",
+      "Bash(curl -s http://localhost:8000/health 2>&1)",
+      "Bash(curl -s http://localhost:8000/openapi.json 2>&1 | python -c \"import json,sys; paths=json.load\\(sys.stdin\\)['paths']; [print\\(p\\) for p in sorted\\(paths\\)]\")",
+      "Bash(curl -s http://localhost:8000/openapi.json | python -c \"import json,sys; paths=json.load\\(sys.stdin\\)['paths']; [print\\(p\\) for p in sorted\\(paths\\)]\")",
+      "Bash(rm -rf \"D:\\\\hktn\\\\robotichackathon20260313\\\\backend\\\\__pycache__\" && curl -s http://localhost:8000/openapi.json | python -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(p\\) for p in sorted\\(d['paths']\\)]\")",
+      "Bash(netstat -ano | findstr \":8000 \" | findstr LISTENING)",
+      "Bash(taskkill //F //PID 13208 //PID 6648 //PID 11184 //PID 24020 2>&1)",
+      "Bash(wmic process:*)",
+      "Bash(taskkill //F //PID 21552 //PID 20792 //PID 2016 //PID 3312 2>&1)",
+      "Bash(sleep 4 && tail -8 \"C:\\\\Users\\\\red\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\D--hktn-robotichackathon20260313\\\\0d9da798-0dee-496b-bc15-6cb447d895c2\\\\tasks\\\\b8ybs5wmt.output\" && curl -s http://localhost:8000/openapi.json | python -c \"import json,sys; [print\\(p\\) for p in sorted\\(json.load\\(sys.stdin\\)['paths']\\)]\")",
+      "Bash(sleep 3 && curl -s http://localhost:8000/health)",
+      "Bash(python -c \"from smallest import Smallest; print\\('OK'\\)\" 2>&1)",
+      "Bash(python -c \"import smallestai; print\\(dir\\(smallestai\\)\\)\" 2>&1)"
     ]
   }
 }

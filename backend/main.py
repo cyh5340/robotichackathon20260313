@@ -1,7 +1,11 @@
+import asyncio
 import json
 import io
 import os
+import sys
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Literal
 from uuid import uuid4
 
@@ -9,10 +13,21 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, W
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-try:
-    from smallest import Smallest
-except Exception:  # pragma: no cover - handled at request time
-    Smallest = None  # type: ignore[assignment]
+from smallest import Smallest
+from dotenv import load_dotenv
+
+# ---------------------------------------------------------------------------
+# Load .env from repo root and make robot modules importable
+# ---------------------------------------------------------------------------
+_ROOT = str(Path(__file__).parent.parent)
+load_dotenv(Path(_ROOT) / ".env")
+
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+
+from pick_and_place import ObjectInfo, pick_and_place as _execute_pick_and_place
+from vision import RobotVision
+from arm_control import ArmController
 
 app = FastAPI(
     title="MedGuard API",
@@ -116,6 +131,12 @@ class VoiceInstructionResponse(BaseModel):
     instruction: str
 
 
+class VisionDetectResponse(BaseModel):
+    target: str
+    pixel_x: int
+    pixel_y: int
+
+
 class OnboardingRecord(BaseModel):
     id: str
     full_name: str
@@ -137,6 +158,56 @@ ADHERENCE_LOGS: dict[str, AdherenceLog] = {}
 ROBOT_TASKS: dict[str, RobotTask] = {}
 ALERT_EVENTS: list[NotificationEvent] = []
 ONBOARDING_RECORDS: dict[str, OnboardingRecord] = {}
+
+
+# ---------------------------------------------------------------------------
+# Robot task background executor
+# ---------------------------------------------------------------------------
+
+async def _run_robot_task(task_id: str) -> None:
+    """Execute a robot task in a thread pool and broadcast status updates."""
+    task = ROBOT_TASKS.get(task_id)
+    if not task:
+        return
+
+    # Mark as running
+    ROBOT_TASKS[task_id] = task.model_copy(update={"status": "running"})
+    await events.broadcast(
+        create_notification(
+            "dose_due",
+            "Robot task started",
+            f"Task {task_id} ({task.task_type}) is now running.",
+        )
+    )
+
+    try:
+        if task.task_type == "pick_and_place":
+            obj = ObjectInfo(
+                name=task.plan_json.get("object_name", "unknown object"),
+                description=task.plan_json.get("description", ""),
+            )
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, _execute_pick_and_place, obj)
+        else:
+            await asyncio.sleep(2)
+
+        ROBOT_TASKS[task_id] = ROBOT_TASKS[task_id].model_copy(update={"status": "completed"})
+        await events.broadcast(
+            create_notification(
+                "robot_sorting_complete",
+                "Robot task completed",
+                f"Task {task_id} completed successfully.",
+            )
+        )
+    except Exception as exc:
+        ROBOT_TASKS[task_id] = ROBOT_TASKS[task_id].model_copy(update={"status": "failed"})
+        await events.broadcast(
+            create_notification(
+                "manual_review_required",
+                "Robot task failed",
+                f"Task {task_id} failed: {exc}",
+            )
+        )
 
 
 class EventConnectionManager:
@@ -186,19 +257,7 @@ def create_notification(
 def get_smallest_client():
     global SMALLEST_CLIENT
 
-    if Smallest is None:
-        raise HTTPException(
-            status_code=503,
-            detail="Smallest.ai SDK is not installed on the backend service.",
-        )
-
     api_key = os.environ.get("SMALLEST_API_KEY")
-    if not api_key:
-        raise HTTPException(
-            status_code=503,
-            detail="SMALLEST_API_KEY is not configured on the backend service.",
-        )
-
     if SMALLEST_CLIENT is None:
         SMALLEST_CLIENT = Smallest(api_key=api_key)
 
@@ -390,6 +449,9 @@ async def create_robot_task(payload: RobotTaskCreate) -> RobotTask:
     )
     await events.broadcast(event)
 
+    # Launch execution in the background
+    asyncio.create_task(_run_robot_task(task.id))
+
     return task
 
 
@@ -434,6 +496,35 @@ async def update_robot_task(task_id: str, payload: RobotTaskUpdate) -> RobotTask
         await events.broadcast(event)
 
     return updated_task
+
+
+@app.post("/robot/vision/detect", response_model=VisionDetectResponse)
+async def vision_detect(
+    target: str = Form(...),
+    image: UploadFile = File(...),
+) -> VisionDetectResponse:
+    """Upload a camera image and a target description; returns detected pixel coords."""
+    image_bytes = await image.read()
+    if not image_bytes:
+        raise HTTPException(status_code=400, detail="Image upload is empty.")
+
+    suffix = Path(image.filename or "frame.jpg").suffix or ".jpg"
+    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+        tmp.write(image_bytes)
+        tmp_path = tmp.name
+
+    try:
+        vision = RobotVision()
+        loop = asyncio.get_event_loop()
+        x, y = await loop.run_in_executor(None, vision.detect_object, target, tmp_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Vision error: {exc}") from exc
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    return VisionDetectResponse(target=target, pixel_x=x, pixel_y=y)
 
 
 @app.websocket("/ws/events")
