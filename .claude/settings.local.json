@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat > D:/hktn/requirements.txt << 'EOF'\n# Audio \\(STT / TTS\\)\nsmallest>=0.1.0\npyaudio>=0.2.14\n\n# Vision \\(VLM via Featherless — OpenAI-compatible\\)\nopenai>=1.30.0\n\n# Arm control\nlerobot>=0.1.0\ntorch>=2.0.0\n\n# Orchestration / skills\ntoolhouse>=0.4.0\nanthropic>=0.28.0\n\n# Camera\nopencv-python>=4.9.0\nEOF)"
+    ]
+  }
+}
